@@ -118,7 +118,6 @@ make
 - All five query fields are required per line. Missing fields will produce an "Invalid query format" error and skip that query.
 - Whitespace around region values is trimmed automatically.
 - The program uses `getline` for dynamic line reading and closes all file handles on completion.
-- It is missing the big census data file for CSV, however it uses the official census format.
 
 ---
 
@@ -175,5 +174,146 @@ Descending:
 - `compress2D` allocates memory with `malloc`. Always `free()` the result when done.
 - `adjacentLetters` returns a pointer into the original string — do not free it.
 - `insertionSortRec` sorts in-place; no allocation or freeing needed.
+
+---
+
+## JavaScript – Insurance Dashboard (Next.js)
+
+A Next.js web application for managing insurance policies, users, and credit profiles. Built with TypeScript, PostgreSQL, and a component-based UI using a sidebar layout.
+
+---
+
+### Credit API
+
+**File:** `app/api/credit/route.ts`
+
+**`POST /api/credit`**
+
+Looks up a customer by email and returns their credit profile along with a suggested premium adjustment multiplier.
+
+**Request body:**
+```json
+{ "email": "customer@example.com" }
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "profile": {
+    "name": "Jane Doe",
+    "email": "customer@example.com",
+    "credit_score": 720,
+    "risk_level": "low",
+    "last_checked": "2024-01-15T00:00:00Z",
+    "suggested_multiplier": 0.95
+  }
+}
+```
+
+**Premium adjustment logic:**
+
+| Risk Level | Multiplier | Effect |
+|---|---|---|
+| `low` | `0.95` | 5% discount |
+| `medium` | `1.0` | No change |
+| `high` | `1.15` | 15% surcharge |
+
+**Error responses:** `400` if email is missing, `404` if user or credit profile not found, `500` on database error.
+
+---
+
+### Policies API
+
+**File:** `app/api/policies/route.ts`
+
+Handles creating, reading, and updating insurance policies. Uses a shared `pool` from `@/lib/db`.
+
+**`GET /api/policies`**
+
+Returns all policies joined with their associated user. Optionally filter by user with a query parameter.
+
+```
+GET /api/policies?userId=3
+```
+
+Each policy in the response includes a nested `user` object with `id`, `firstName`, `lastName`, and `email`.
+
+**`POST /api/policies`**
+
+Creates a new policy with status `under_review`. Auto-generates a policy number in the format `POL-YYYY-NNNN`.
+
+**Required body fields:** `userId`, `type`, `coverageAmount`, `premium`, `startDate`, `endDate`
+
+Returns `201` on success with the created policy. Returns `409` if a duplicate policy number collision occurs.
+
+**`PATCH /api/policies?id=5`**
+
+Updates the status of an existing policy by ID.
+
+**Required body field:** `status`
+
+---
+
+### Users API
+
+**File:** `app/api/users/route.ts`
+
+**`GET /api/users`**
+
+Returns all users with their full profile: credit score, risk level, all associated policies, and all associated claims. Performs per-user subqueries for policies and claims.
+
+**Response shape per user:**
+```json
+{
+  "id": 1,
+  "firstName": "Jane",
+  "lastName": "Doe",
+  "email": "jane@example.com",
+  "creditScore": 720,
+  "riskLevel": "low",
+  "policies": [...],
+  "claims": [...]
+}
+```
+
+---
+
+### Policies Page
+
+**File:** `app/policies/page.tsx`
+
+Client-side page that renders the policies dashboard view. Reads the logged-in user from `localStorage` and redirects to `/` if no session is found. Maps the `agent` role to `admin` for the sidebar display. Renders `<PoliciesTab />` inside the shared sidebar layout.
+
+---
+
+### Users Page
+
+**File:** `app/users/page.tsx`
+
+Client-side page that renders the users management view. Follows the same auth pattern as the Policies page — reads from `localStorage`, redirects if unauthenticated, and maps `agent` → `admin` for the sidebar role. Renders `<UsersTab />` inside the shared sidebar layout.
+
+---
+
+### Environment Variables
+
+Both the credit and users API routes create their own `Pool` instances directly. The policies API imports a shared pool from `@/lib/db`. All routes expect the following environment variables:
+
+| Variable | Description |
+|---|---|
+| `DB_HOST` | PostgreSQL host |
+| `DB_PORT` | PostgreSQL port (default `5432`) |
+| `DB_NAME` | Database name |
+| `DB_USER` | Database user |
+| `DB_PASSWORD` | Database password |
+| `NODE_ENV` | Set to `production` to enable SSL |
+
+---
+
+### Notes
+
+- SSL is enabled automatically in production (`NODE_ENV=production`) with `rejectUnauthorized: false`.
+- Both page components use `localStorage` for session persistence — this is client-side only and requires the `'use client'` directive.
+- The quick-create button on both pages routes to `/claims?create=true`.
 
 ---
