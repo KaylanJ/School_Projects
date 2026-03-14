@@ -118,6 +118,7 @@ make
 - All five query fields are required per line. Missing fields will produce an "Invalid query format" error and skip that query.
 - Whitespace around region values is trimmed automatically.
 - The program uses `getline` for dynamic line reading and closes all file handles on completion.
+- It is missing the big census data file for CSV, however it uses the official census format.
 
 ---
 
